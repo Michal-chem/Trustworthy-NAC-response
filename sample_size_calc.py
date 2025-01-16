@@ -4,8 +4,6 @@ import statsmodels.api as sm
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-np.random.seed(1234)
-
 class ToolTip:
     def __init__(self, widget, text):
         self.widget = widget
@@ -78,7 +76,19 @@ def calculate_prevalence():
     except Exception as e:
         messagebox.showerror("Error", str(e))
 
-
+def calculate_epv():
+    try:
+        epv = float(epv_entry.get())
+        prevalence = float(prevalence_epv_entry.get())
+        n = float(n_entry_epv.get())
+        
+        result = StatisticalCalculator().epv_calc(epv, prevalence, n)
+        show_result(f"Calculated Sample Size: {result:.4f}")
+    except ValueError:
+        messagebox.showerror("Input Error", "Please fill in all fields correctly. Ensure all fields contain valid numeric values.")
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+        
 root = tk.Tk()
 root.title("Sample Size Assessment")
 
@@ -90,18 +100,18 @@ positive_cases_label = ttk.Label(frame_prevalence, text="Positive Cases:")
 positive_cases_label.grid(row=0, column=0, padx=5, pady=5, sticky="e")
 positive_cases_entry = ttk.Entry(frame_prevalence)
 positive_cases_entry.grid(row=0, column=1, padx=5, pady=5)
-ToolTip(positive_cases_entry, "Enter the number of positive cases (e.g., patients with the disease).")
+ToolTip(positive_cases_entry, "Enter the number of positive cases (e.g. patients with the disease).")
 
 total_cases_label = ttk.Label(frame_prevalence, text="Total Cases:")
 total_cases_label.grid(row=1, column=0, padx=5, pady=5, sticky="e")
 total_cases_entry = ttk.Entry(frame_prevalence)
 total_cases_entry.grid(row=1, column=1, padx=5, pady=5)
-ToolTip(total_cases_entry, "Enter the total number of cases (e.g., all patients).")
+ToolTip(total_cases_entry, "Enter the total number of cases (e.g. all patients).")
 
 ttk.Button(frame_prevalence, text="Calculate Prevalence", command=calculate_prevalence).grid(row=2, column=0, columnspan=2, pady=10)
 
 # Cox-Snell based sample size calculation Frame
-frame_R2 = ttk.LabelFrame(root, text="Calculate Sample Size Based on Cox-Snell")
+frame_R2 = ttk.LabelFrame(root, text="Calculate Sample Size Based on Cox-Snell residuals")
 frame_R2.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
 
 auc_label = ttk.Label(frame_R2, text="AUC:")
@@ -116,17 +126,17 @@ prevalence_entry = ttk.Entry(frame_R2)
 prevalence_entry.grid(row=1, column=1, padx=5, pady=5)
 ToolTip(prevalence_entry, "The prevalence of the condition (positive cases/total cases).")
 
-S_label = ttk.Label(frame_R2, text="Shrinkage Factor (S):")
+S_label = ttk.Label(frame_R2, text="Shrinkage Factor:")
 S_label.grid(row=2, column=0, padx=5, pady=5, sticky="e")
 S_entry = ttk.Entry(frame_R2)
 S_entry.grid(row=2, column=1, padx=5, pady=5)
-ToolTip(S_entry, "Enter the Shrinkage Factor (e.g., 0.9).")
+ToolTip(S_entry, "Enter the Shrinkage Factor (e.g. 0.9).")
 
-N_label = ttk.Label(frame_R2, text="Number of Features (N):")
+N_label = ttk.Label(frame_R2, text="Number of features:")
 N_label.grid(row=3, column=0, padx=5, pady=5, sticky="e")
 N_entry = ttk.Entry(frame_R2)
 N_entry.grid(row=3, column=1, padx=5, pady=5)
-ToolTip(N_entry, "Enter the Number of Features used for training.")
+ToolTip(N_entry, "Enter the number of features used for training.")
 
 ttk.Button(frame_R2, text="Calculate Sample Size", command=calculate_R2).grid(row=4, column=0, columnspan=2, pady=10)
 
@@ -138,7 +148,7 @@ epv_label = ttk.Label(frame_epv, text="EPV:")
 epv_label.grid(row=0, column=0, padx=5, pady=5, sticky="e")
 epv_entry = ttk.Entry(frame_epv)
 epv_entry.grid(row=0, column=1, padx=5, pady=5)
-ToolTip(epv_entry, "Expected Number of Events per Variable (EPV).")
+ToolTip(epv_entry, "Enter the umber of Events per Variable (EPV).")
 
 prevalence_epv_label = ttk.Label(frame_epv, text="Prevalence:")
 prevalence_epv_label.grid(row=1, column=0, padx=5, pady=5, sticky="e")
@@ -146,43 +156,12 @@ prevalence_epv_entry = ttk.Entry(frame_epv)
 prevalence_epv_entry.grid(row=1, column=1, padx=5, pady=5)
 ToolTip(prevalence_epv_entry, "Prevalence of the condition (positive cases/total cases).")
 
-n_label_epv = ttk.Label(frame_epv, text="Number of radiomics features:")
+n_label_epv = ttk.Label(frame_epv, text="Number of features:")
 n_label_epv.grid(row=2, column=0, padx=5, pady=5, sticky="e")
 n_entry_epv = ttk.Entry(frame_epv)
 n_entry_epv.grid(row=2, column=1, padx=5, pady=5)
-ToolTip(n_entry_epv, "Sample size for EPV calculation.")
+ToolTip(n_entry_epv, "Enter the number of features used for training.")
 
 ttk.Button(frame_epv, text="Calculate Sample Size", command=calculate_epv).grid(row=3, column=0, columnspan=2, pady=10)
 
 root.mainloop()
-
-# FROM DIMITRI R TO IMPLEMENT
-# # Number of pCR cases used for training
-# n_pCR <- 58
-# # Number of non-pCR used for training
-# n_npCR <- 172
-
-# # Number of features used for training
-# N <- 48
-
-# # AUC of model (testing)
-# auc <- 0.793
-
-# # Shrinkage 
-# S <- 0.9
-
-# # Define prevalence
-# # number of pCR cases / (number of pCR + number of non-pCR) used in training the model
-# prev <- n_pCR / (n_pCR + n_npCR)
-
-# Rcs <- approximate_R2(auc = auc, prev = prev, n=1000000)
-
-# # Calculate sample size n
-# n_cs <- N / ((S - 1) * log(1 - (Rcs$R2.coxsnell / S)))
-# n_cs
-
-# # If no AUC provided by study use the below using events per variable (epv)
-# epv <- 10
-
-# n_epv <- (epv * N) / prev 
-# n_epv
