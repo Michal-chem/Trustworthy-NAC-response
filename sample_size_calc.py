@@ -140,7 +140,7 @@ ToolTip(N_entry, "Enter the number of features used for training.")
 
 ttk.Button(frame_R2, text="Calculate Sample Size", command=calculate_R2).grid(row=4, column=0, columnspan=2, pady=10)
 
-# EPV Calculation Frame remains the same...
+# EPV Calculation Frame
 frame_epv = ttk.LabelFrame(root, text="EPV Calculation")
 frame_epv.grid(row=2, column=0, padx=10, pady=10, sticky="nsew")
 
