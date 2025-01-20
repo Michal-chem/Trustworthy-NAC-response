@@ -1,8 +1,52 @@
+# Python related packages
 import numpy as np
 from scipy.stats import norm
 import statsmodels.api as sm
 import tkinter as tk
 from tkinter import ttk, messagebox
+# R related packages
+import rpy2.robjects as ro
+from rpy2.robjects.packages import importr
+from rpy2.robjects.vectors import FloatVector
+
+# R function to approximate R2
+rms = importr("rms")
+r_code = """
+library(rms)
+
+approximate_R2 <- function(auc, prev, N, S, n = 1000000) {
+  set.seed(1234)
+  # Define mu as a function of the C statistic
+  mu <- sqrt(2) * qnorm(auc)
+
+  # Simulate large sample linear prediction based on two normals
+  LP <- c(rnorm(prev * n, mean = 0, sd = 1), rnorm((1 - prev) * n, mean = mu, sd = 1))
+  y <- c(rep(0, prev * n), rep(1, (1 - prev) * n))
+
+  # Fit a logistic regression with LP as covariate
+  fit <- lrm(y ~ LP)
+
+  # Define max_R2 function
+  max_R2 <- function(prev) {
+    1 - (prev^prev * (1 - prev)^(1 - prev))^2
+  }
+
+  # Calculate R2 values
+  R2_nagelkerke <- as.numeric(fit$stats['R2'])
+  R2_coxsnell <- R2_nagelkerke * max_R2(prev)
+
+  # Calculate n_cs
+  n_cs <- N / ((S - 1) * log(1 - (R2_coxsnell / S)))
+
+  return(list(R2_nagelkerke = R2_nagelkerke,
+              R2_coxsnell = R2_coxsnell,
+              n_cs = n_cs,
+              LP = LP,
+              y = y))
+}
+"""
+ro.r(r_code)
+R2_R = ro.globalenv['approximate_R2']
 
 class ToolTip:
     def __init__(self, widget, text):
@@ -26,25 +70,35 @@ class ToolTip:
             self.tooltip.destroy()
 
 
-class StatisticalCalculator:
-    def approximate_R2(self, auc, prevalence, S, N, n=1000000):
-        mu = np.sqrt(2) * norm.ppf(auc)
-        non_events = np.random.normal(loc=0, scale=1, size=int(prevalence * n))
-        events = np.random.normal(loc=mu, scale=1, size=int((1 - prevalence) * n))
-        LP = np.concatenate([non_events, events])
-        y = np.concatenate([np.zeros(int(prevalence * n)), np.ones(int((1 - prevalence) * n))])
-        LP = sm.add_constant(LP)
-        model = sm.Logit(y, LP).fit(disp=0)
-        sam_size = N / ((S - 1) * np.log(1 - (model.prsquared / S)))
-        return sam_size
 
+class StatisticalCalculator:
     def epv_calc(self, epv, prevalence, n):
         return (epv * n) / prevalence
 
     def calculate_prevalence(self, positive_cases, total_cases):
         return positive_cases / total_cases if total_cases else 0
 
-
+    def max_R2(self, prevalence):
+        return 1 - ((prevalence ** prevalence) * ((1 - prevalence) ** (1 - prevalence))) ** 2
+       
+    def approximate_R2(self, auc, prev, N, S, n=1000000):
+            # Convert inputs to R-compatible types
+            auc_r = ro.FloatVector([auc])[0]
+            prev_r = ro.FloatVector([prev])[0]
+            N_r = ro.FloatVector([N])[0]
+            S_r = ro.FloatVector([S])[0]
+            n_r = ro.FloatVector([n])[0]
+            
+            # Call the R function and convert the result
+            result = R2_R(auc_r, prev_r, N_r, S_r, n_r)
+            return {
+                "R2_nagelkerke": result.rx2('R2_nagelkerke')[0],
+                "R2_coxsnell": result.rx2('R2_coxsnell')[0],
+                "n_cs": result.rx2('n_cs')[0],
+                "LP": list(result.rx2('LP')),
+                "y": list(result.rx2('y'))
+            }
+        
 def show_result(message):
     messagebox.showinfo("Result", message)
 
@@ -56,8 +110,18 @@ def calculate_R2():
         S = float(S_entry.get())
         N = float(N_entry.get())
 
-        result = StatisticalCalculator().approximate_R2(auc, prevalence, S, N)
-        show_result(f"Calculated Sample Size: {result:.4f}")
+        calculator = StatisticalCalculator()
+        result = calculator.approximate_R2(auc, prevalence, N, S)
+        # Access specific values and format them
+        nagelkerke_r2 = result["R2_nagelkerke"]
+        coxsnell_r2 = result["R2_coxsnell"]
+        n_cs = result["n_cs"]
+
+        show_result(
+            f"Nagelkerke R²: {nagelkerke_r2:.4f}\n"
+            f"Cox-Snell R²: {coxsnell_r2:.4f}\n"
+            f"Calculated Sample Size: {n_cs:.4f}"
+        )
     except ValueError as ve:
         messagebox.showerror("Input Error", "Please fill in all fields correctly. Ensure all fields contain valid numeric values.")
     except Exception as e:
