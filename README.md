@@ -15,7 +15,7 @@ To use this Docker image, ensure that you have installed the following:
 
 Start by cloning the repository to your local machine:
 
-git clone https://github.com/your-username/sample-size-calculator.git
+git clone https://github.com/Michal-chem/Trustworthy-NAC-response
 
 ### 2. Build the Docker Image
 
